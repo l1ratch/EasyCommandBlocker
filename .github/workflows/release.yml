@@ -58,6 +58,9 @@ jobs:
 
       - name: Rename built JAR
         run: |
+          if [ -f "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar" ]; then
+            rm "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
+          fi
           mv target/*.jar "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
 
       - name: Create GitHub Release
