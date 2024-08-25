@@ -23,14 +23,12 @@ jobs:
         run: |
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "PLUGIN_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Plugin version is $VERSION"
 
       - name: Get the latest commit message
         id: get-commit-message
         run: |
           COMMIT_MESSAGE=$(git log -1 --pretty=%B)
           echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
-          echo "Commit message is $COMMIT_MESSAGE"
 
       - name: Check if build is needed
         if: contains(steps.get-commit-message.outputs.COMMIT_MESSAGE, 'no build version')
@@ -38,7 +36,7 @@ jobs:
           echo "Build and release skipped due to 'no build version' in commit message."
           exit 0
 
-      - name: Check if tag exists
+      - name: Check if tag exists and determine new tag
         id: check-tag
         run: |
           TAG_NAME=v${{ env.PLUGIN_VERSION }}
@@ -50,7 +48,6 @@ jobs:
             TAG_NAME="$TAG_NAME-$COUNTER"
           fi
           echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
-          echo "Tag name for release is $TAG_NAME"
 
       - name: Build with Maven
         run: |
@@ -58,15 +55,10 @@ jobs:
 
       - name: Rename built JAR
         run: |
-          # Найти исходный JAR файл
           ORIGINAL_JAR=$(ls target/*.jar | head -n 1)
-          
-          # Проверить, существует ли целевой файл и удалить его
           if [ -f "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar" ]; then
             rm "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
           fi
-          
-          # Переименовать оригинальный JAR в целевое имя
           mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
 
       - name: Create GitHub Release
