@@ -5,9 +5,9 @@
 # Права и команды
 **1. Права:**<br>
 `EasyCommandBlocker.admin` - Доступ к командам плагина (*Доступна оператору, Без обхода*)<br>
-`EasyCommandBlocker.bypass-all` - Обход блокировки команд (*НЕ доступна оператору*)<br>
-`EasyCommandBlocker.bypass-all` - Обход блокировки команд (*НЕ доступна оператору*)<br>
-`EasyCommandBlocker.bypass-all` - Обход блокировки команд (*НЕ доступна оператору*)<br>
+`EasyCommandBlocker.bypass-all` - Полный обход всех ограничений (*НЕ доступна оператору*)<br>
+`EasyCommandBlocker.bypass-command` - Позволяет обходить блокировки обычных команд (*НЕ доступна оператору*)<br>
+`EasyCommandBlocker.bypass-colon` - Позволяет обходить блокировки команд с двоеточием (*НЕ доступна оператору*)<br>
 
 **2. Команды:**<br>
 `/ecb` или `/ecb help`  - Информация и помощь по плагину<br>
