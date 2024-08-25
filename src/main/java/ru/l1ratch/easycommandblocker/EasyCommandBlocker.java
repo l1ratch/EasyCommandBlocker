@@ -41,11 +41,13 @@ public class EasyCommandBlocker extends JavaPlugin implements Listener, TabCompl
         getServer().getConsoleSender().sendMessage(ChatColor.GREEN + "----------------------------------------");
 
         saveDefaultConfig();
+        ensureDefaultFilesExist(); // Обеспечить наличие конфигурации и файла миграции
 
-        // Регистрация команды для миграции
-        PluginCommand migrateCommand = getCommand("ecb");
-        if (migrateCommand != null) {
-            migrateCommand.setExecutor(this);
+        // Регистрация команды для миграции и других команд
+        PluginCommand ecbCommand = getCommand("ecb");
+        if (ecbCommand != null) {
+            ecbCommand.setExecutor(this);
+            ecbCommand.setTabCompleter(this);
         }
 
         // Загрузка текста по умолчанию из конфигурации и преобразование цветов
@@ -156,61 +158,35 @@ public class EasyCommandBlocker extends JavaPlugin implements Listener, TabCompl
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        // Проверка на разрешение полного обхода всех ограничений
-        if (sender.hasPermission("EasyCommandBlocker.bypass-all")) {
-            return null; // Оставляем команду доступной в таб-комплитере
-        }
-
-        // Проверка на наличие двоеточия в команде в зависимости от настройки blockColonCommands
-        if (command.getName().contains(":")) {
-            if (sender.hasPermission("EasyCommandBlocker.bypass-colon")) {
-                return null; // Оставляем команду с двоеточием доступной в таб-комплитере
-            }
-
-            switch (blockColonCommands) {
-                case "HIDE":
-                case "TRUE":
-                    return Collections.emptyList(); // Скрываем команду с двоеточием
-                case "BLOCK":
-                case "FALSE":
-                    return null; // Оставляем команду доступной в таб-комплитере
-                default:
-                    return null; // Оставляем команду доступной в таб-комплитере
+        if (sender.hasPermission("EasyCommandBlocker.admin")) {
+            if (args.length == 1) {
+                return Arrays.asList("help", "reload", "migrate", "cmd");
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("cmd")) {
+                return Arrays.asList("add", "del", "edit");
             }
         }
-
-        // Проверка на разрешение обхода блокировки обычных команд
-        if (sender.hasPermission("EasyCommandBlocker.bypass-command")) {
-            return null; // Оставляем команду доступной в таб-комплитере
-        }
-
-        BlockedCommand blockedCommand = blockedCommands.get(command.getName().toLowerCase());
-        if (blockedCommand != null && blockedCommand.hideFromTab) {
-            return Collections.emptyList(); // Скрываем заблокированную команду
-        }
-        return null; // Позволяем серверу предоставить обычные подсказки
+        return null;
     }
 
-    // Метод для преобразования цветовых кодов
-    private String translateColors(String text) {
-        return ChatColor.translateAlternateColorCodes('&', text);
-    }
-
-    // Получение CommandMap для проверки зарегистрированных команд
-    private CommandMap getCommandMap() {
-        try {
-            Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
-            commandMapField.setAccessible(true);
-            return (CommandMap) commandMapField.get(Bukkit.getServer());
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    // Обработка команды /ecb migrate <file.yml>
+    // Обработка всех команд плагина /ecb
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender.hasPermission("EasyCommandBlocker.admin"))) {
+            sender.sendMessage(ChatColor.RED + "You do not have permission to use this command.");
+            return true;
+        }
+
+        if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
+            sendHelpMessage(sender);
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("reload")) {
+            reloadConfig();
+            sender.sendMessage(ChatColor.GREEN + "Configuration reloaded.");
+            return true;
+        }
+
         if (args.length == 2 && args[0].equalsIgnoreCase("migrate")) {
             String fileName = args[1];
             File file = new File(getDataFolder(), fileName);
@@ -240,11 +216,118 @@ public class EasyCommandBlocker extends JavaPlugin implements Listener, TabCompl
 
             getConfig().set("BlockCMD", migratedCommands);
             saveConfig();
+            reloadConfig(); // Перезагрузка конфигурации после миграции
 
             sender.sendMessage(ChatColor.GREEN + "Commands from " + fileName + " have been migrated to the main configuration.");
             return true;
         }
 
+        if (args.length >= 4 && args[0].equalsIgnoreCase("cmd")) {
+            String subCommand = args[1];
+            String cmdName = args[2];
+            String blockMessage = args[3];
+            boolean tabCompleter = args.length > 4 && Boolean.parseBoolean(args[4]);
+
+            if (subCommand.equalsIgnoreCase("add")) {
+                addCommand(cmdName, blockMessage, tabCompleter);
+                sender.sendMessage(ChatColor.GREEN + "Command " + cmdName + " added.");
+                return true;
+            }
+
+            if (subCommand.equalsIgnoreCase("del")) {
+                removeCommand(cmdName);
+                sender.sendMessage(ChatColor.GREEN + "Command " + cmdName + " removed.");
+                return true;
+            }
+
+            if (subCommand.equalsIgnoreCase("edit")) {
+                editCommand(cmdName, blockMessage, tabCompleter);
+                sender.sendMessage(ChatColor.GREEN + "Command " + cmdName + " updated.");
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private void sendHelpMessage(CommandSender sender) {
+        sender.sendMessage(ChatColor.AQUA + "EasyCommandBlocker Commands:");
+        sender.sendMessage(ChatColor.YELLOW + "/ecb help" + ChatColor.WHITE + " - Show this help message.");
+        sender.sendMessage(ChatColor.YELLOW + "/ecb reload" + ChatColor.WHITE + " - Reload the configuration.");
+        sender.sendMessage(ChatColor.YELLOW + "/ecb migrate <file.yml>" + ChatColor.WHITE + " - Migrate commands from a specified file.");
+        sender.sendMessage(ChatColor.YELLOW + "/ecb cmd add <command> <'block message'> <true/false>" + ChatColor.WHITE + " - Add a command to the block list.");
+        sender.sendMessage(ChatColor.YELLOW + "/ecb cmd del <command>" + ChatColor.WHITE + " - Remove a command from the block list.");
+        sender.sendMessage(ChatColor.YELLOW + "/ecb cmd edit <command> <'block message'> <true/false>" + ChatColor.WHITE + " - Edit a command in the block list.");
+    }
+
+    // Добавление команды в конфигурацию
+    private void addCommand(String command, String message, boolean tabCompleter) {
+        List<Map<String, Object>> configCommands = (List<Map<String, Object>>) getConfig().getList("BlockCMD");
+        if (configCommands == null) configCommands = new ArrayList<>();
+
+        Map<String, Object> newCommand = new HashMap<>();
+        newCommand.put("command", command.toLowerCase());
+        newCommand.put("message", message);
+        newCommand.put("tabCompleter", tabCompleter);
+        configCommands.add(newCommand);
+
+        getConfig().set("BlockCMD", configCommands);
+        saveConfig();
+        reloadConfig();
+    }
+
+    // Удаление команды из конфигурации
+    private void removeCommand(String command) {
+        List<Map<String, Object>> configCommands = (List<Map<String, Object>>) getConfig().getList("BlockCMD");
+        if (configCommands != null) {
+            configCommands.removeIf(cmd -> cmd.get("command").equals(command.toLowerCase()));
+            getConfig().set("BlockCMD", configCommands);
+            saveConfig();
+            reloadConfig();
+        }
+    }
+
+    // Изменение команды в конфигурации
+    private void editCommand(String command, String message, boolean tabCompleter) {
+        List<Map<String, Object>> configCommands = (List<Map<String, Object>>) getConfig().getList("BlockCMD");
+        if (configCommands != null) {
+            for (Map<String, Object> cmd : configCommands) {
+                if (cmd.get("command").equals(command.toLowerCase())) {
+                    cmd.put("message", message);
+                    cmd.put("tabCompleter", tabCompleter);
+                    break;
+                }
+            }
+            getConfig().set("BlockCMD", configCommands);
+            saveConfig();
+            reloadConfig();
+        }
+    }
+
+    // Обеспечить наличие конфигурации и файла миграции
+    private void ensureDefaultFilesExist() {
+        saveDefaultConfig();
+
+        File migrateFile = new File(getDataFolder(), "migrate.yml");
+        if (!migrateFile.exists()) {
+            saveResource("migrate.yml", false);
+        }
+    }
+
+    // Метод для преобразования цветовых кодов
+    private String translateColors(String text) {
+        return ChatColor.translateAlternateColorCodes('&', text);
+    }
+
+    // Получение CommandMap для проверки зарегистрированных команд
+    private CommandMap getCommandMap() {
+        try {
+            Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
+            commandMapField.setAccessible(true);
+            return (CommandMap) commandMapField.get(Bukkit.getServer());
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

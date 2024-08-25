@@ -12,11 +12,12 @@ commands:
     aliases: [easycommandblocker, blockcmd, easyblockcmd]
 
 permissions:
+  EasyCommandBlocker.admin:
+    description: Полный доступ к управлению командами плагина
+    default: op
   EasyCommandBlocker.bypass-all:
-    description: Полный обход всех ограничений, установленных плагином.
-
+    description: Полный обход всех ограничений, установленных плагином
   EasyCommandBlocker.bypass-command:
-    description: Позволяет обходить блокировки обычных команд, установленных плагином.
-
+    description: Позволяет обходить блокировки обычных команд, установленных плагином
   EasyCommandBlocker.bypass-colon:
-    description: Позволяет обходить блокировки команд с двоеточием, установленных плагином.
+    description: Позволяет обходить блокировки команд с двоеточием, установленных плагином
