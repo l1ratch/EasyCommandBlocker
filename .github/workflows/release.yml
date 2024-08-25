@@ -40,14 +40,19 @@ jobs:
         id: check-tag
         run: |
           TAG_NAME=v${{ env.PLUGIN_VERSION }}
+          echo "Checking if tag $TAG_NAME exists..."
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
             COUNTER=1
             while git rev-parse "$TAG_NAME-$COUNTER" >/dev/null 2>&1; do
               COUNTER=$((COUNTER+1))
             done
             TAG_NAME="$TAG_NAME-$COUNTER"
+            echo "Tag $TAG_NAME already exists. New tag determined: $TAG_NAME"
+          else
+            echo "Tag $TAG_NAME does not exist. Proceeding with this tag."
           fi
           echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
+          echo "Final tag name: $TAG_NAME"
 
       - name: Build with Maven
         run: |
@@ -63,6 +68,8 @@ jobs:
 
       - name: Create GitHub Release
         id: create-release
+        run: |
+          echo "Creating release with tag ${{ env.RELEASE_TAG }}..."
         uses: actions/create-release@v1
         with:
           tag_name: ${{ env.RELEASE_TAG }}
