@@ -1,0 +1,10 @@
+# Пример содержания файла миграции
+# /ecb migrate migrate.yml - команда для миграции(migrate.yml -> config.yml)
+# При миграции всем командам будут установлены значения deftxt и TabCompleter: false
+
+BlockCMD:
+  - 'op'
+  - 'gm 1'
+  - 'kick'
+  - 'stop'
+  - 'reload'

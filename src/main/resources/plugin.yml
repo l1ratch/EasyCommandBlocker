@@ -1,0 +1,22 @@
+name: EasyCommandBlocker
+version: '${project.version}'
+main: ru.l1ratch.easycommandblocker.EasyCommandBlocker
+load: STARTUP
+authors: [ l1ratch ]
+description: Plugin for block command(for minecraft spigot server)
+
+commands:
+  ecb:
+    description: "EasyCommandBlocker command for various plugin operations"
+    usage: "/<command> <subcommand>"
+    aliases: [easycommandblocker, blockcmd, easyblockcmd]
+
+permissions:
+  EasyCommandBlocker.bypass-all:
+    description: Полный обход всех ограничений, установленных плагином.
+
+  EasyCommandBlocker.bypass-command:
+    description: Позволяет обходить блокировки обычных команд, установленных плагином.
+
+  EasyCommandBlocker.bypass-colon:
+    description: Позволяет обходить блокировки команд с двоеточием, установленных плагином.
