@@ -4,10 +4,10 @@
 Поддержка ядер сервера: `Spigot, Paper, другие форки Spigot`<br>
 # Права и команды
 **1. Права:**<br>
-`EasyCommandBlocker.admin` - Доступ к командам плагина(*Доступна оператору, Без обхода*)<br>
-`EasyCommandBlocker.bypass-all` - Обход блокировки команд(*НЕ доступна оператору*)<br>
-`EasyCommandBlocker.bypass-all` - Обход блокировки команд(*НЕ доступна оператору*)<br>
-`EasyCommandBlocker.bypass-all` - Обход блокировки команд(*НЕ доступна оператору*)<br>
+`EasyCommandBlocker.admin` - Доступ к командам плагина (*Доступна оператору, Без обхода*)<br>
+`EasyCommandBlocker.bypass-all` - Обход блокировки команд (*НЕ доступна оператору*)<br>
+`EasyCommandBlocker.bypass-all` - Обход блокировки команд (*НЕ доступна оператору*)<br>
+`EasyCommandBlocker.bypass-all` - Обход блокировки команд (*НЕ доступна оператору*)<br>
 
 **2. Команды:**<br>
 `/ecb` или `/ecb help`  - Информация и помощь по плагину<br>
