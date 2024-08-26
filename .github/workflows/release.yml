@@ -87,3 +87,15 @@ jobs:
         run: |
           DESCRIPTION=$(cat ${{ env.DESCRIPTION_FILE }})
           gh release create ${{ env.FINAL_VERSION }} target/EasyCommandBlocker-${{ env.FINAL_VERSION }}.jar --title "${{ env.FINAL_VERSION }}" --notes "$DESCRIPTION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+
+      - name: Upload assets to release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.determine_version.outputs.upload_url }}
+          asset_path: "target/EasyCommandBlocker-${{ env.FINAL_VERSION }}.jar"
+          asset_name: "EasyCommandBlocker-${{ env.FINAL_VERSION }}.jar"
+          asset_content_type: application/java-archive
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
