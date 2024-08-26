@@ -27,16 +27,15 @@ jobs:
         run: |
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "PLUGIN_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "::set-output name=plugin_version::$VERSION"
 
       - name: Get the latest commit message
         id: get-commit-message
         run: |
           COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          echo "::set-output name=commit_message::$COMMIT_MESSAGE"
+          echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
 
       - name: Check if build is needed
-        if: contains(steps.get-commit-message.outputs.commit_message, 'no build version')
+        if: contains('${{ env.COMMIT_MESSAGE }}', 'no build version')
         run: |
           echo "Build and release skipped due to 'no build version' in commit message."
           exit 0
@@ -44,15 +43,15 @@ jobs:
       - name: Determine release tag with incremented indicator
         id: determine-tag
         run: |
-          BASE_TAG="v${{ steps.get-version.outputs.plugin_version }}"
+          BASE_TAG="v${{ env.PLUGIN_VERSION }}"
           TAG_NAME="$BASE_TAG"
           COUNTER=1
           while gh api --silent "/repos/${{ github.repository }}/releases/tags/$TAG_NAME" >/dev/null 2>&1; do
             TAG_NAME="$BASE_TAG($COUNTER)"
             COUNTER=$((COUNTER+1))
           done
+          echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
           echo "Final tag determined: $TAG_NAME"
-          echo "::set-output name=release_tag::$TAG_NAME"
 
       - name: Build with Maven
         run: |
@@ -61,13 +60,13 @@ jobs:
       - name: Rename built JAR
         run: |
           ORIGINAL_JAR=$(ls target/*.jar | head -n 1)
-          mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ steps.determine-tag.outputs.release_tag }}.jar"
+          mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
 
       - name: Create GitHub Release using CLI
         run: |
-          TAG_NAME="${{ steps.determine-tag.outputs.release_tag }}"
+          TAG_NAME="${{ env.RELEASE_TAG }}"
           JAR_FILE="target/EasyCommandBlocker_${TAG_NAME}.jar"
           echo "Creating release with tag: $TAG_NAME"
-          gh release create "$TAG_NAME" "$JAR_FILE" --title "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}"
+          gh release create "$TAG_NAME" "$JAR_FILE" --title "$TAG_NAME" --notes "${{ env.COMMIT_MESSAGE }}"
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
