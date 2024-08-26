@@ -67,9 +67,6 @@ jobs:
           mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
 
       - name: Create GitHub Release
-        id: create-release
-        run: |
-          echo "Creating release with tag ${{ env.RELEASE_TAG }}..."
         uses: actions/create-release@v1
         with:
           tag_name: ${{ env.RELEASE_TAG }}
