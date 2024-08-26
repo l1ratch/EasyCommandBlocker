@@ -35,29 +35,6 @@ jobs:
           COMMIT_MESSAGE=$(git log -1 --pretty=%B)
           echo "::set-output name=commit_message::$COMMIT_MESSAGE"
 
-      - name: Check if build is needed
-        if: contains(steps.get-commit-message.outputs.commit_message, 'no build version')
-        run: |
-          echo "Build and release skipped due to 'no build version' in commit message."
-          exit 0
-
-      - name: Determine release tag
-        id: determine-tag
-        run: |
-          TAG_NAME="v${{ steps.get-version.outputs.plugin_version }}"
-          echo "Checking if tag $TAG_NAME exists..."
-          if gh release view "$TAG_NAME" &>/dev/null; then
-            COUNTER=1
-            while gh release view "$TAG_NAME-$COUNTER" &>/dev/null; do
-              COUNTER=$((COUNTER+1))
-            done
-            TAG_NAME="$TAG_NAME-$COUNTER"
-            echo "Tag already exists. New tag determined: $TAG_NAME"
-          else
-            echo "Tag $TAG_NAME does not exist. Proceeding with this tag."
-          fi
-          echo "::set-output name=release_tag::$TAG_NAME"
-
       - name: Build with Maven
         run: |
           mvn clean package
@@ -65,10 +42,15 @@ jobs:
       - name: Rename built JAR
         run: |
           ORIGINAL_JAR=$(ls target/*.jar | head -n 1)
-          mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ steps.determine-tag.outputs.release_tag }}.jar"
+          mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ steps.get-version.outputs.plugin_version }}.jar"
 
-      - name: Create GitHub Release using CLI
+      - name: Update GitHub Release using CLI
         run: |
-          gh release create ${{ steps.determine-tag.outputs.release_tag }} "target/EasyCommandBlocker_${{ steps.determine-tag.outputs.release_tag }}.jar" --title "${{ steps.determine-tag.outputs.release_tag }}" --notes "${{ steps.get-commit-message.outputs.commit_message }}"
+          TAG_NAME="v${{ steps.get-version.outputs.plugin_version }}"
+          if gh release view "$TAG_NAME" &>/dev/null; then
+            gh release edit "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}" --title "$TAG_NAME" "target/EasyCommandBlocker_${{ steps.get-version.outputs.plugin_version }}.jar"
+          else
+            gh release create "$TAG_NAME" "target/EasyCommandBlocker_${{ steps.get-version.outputs.plugin_version }}.jar" --title "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
