@@ -64,23 +64,19 @@ jobs:
           ORIGINAL_JAR=$(ls target/*.jar | head -n 1)
           mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ steps.determine-tag.outputs.release_tag }}.jar"
 
+      - name: Save old files to a new OLD release
+        if: steps.determine-tag.outputs.release_tag != steps.get-version.outputs.plugin_version
+        run: |
+          OLD_TAG="${{ steps.get-version.outputs.plugin_version }}-OLD"
+          gh release create "$OLD_TAG" $(gh release view "${{ steps.get-version.outputs.plugin_version }}" --json assets --jq '.assets[].url' | xargs -n1 -I{} curl -L -o {} {})
+          gh release delete "${{ steps.get-version.outputs.plugin_version }}" -y
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create or Update GitHub Release using CLI
         run: |
           TAG_NAME="${{ steps.determine-tag.outputs.release_tag }}"
           JAR_FILE="target/EasyCommandBlocker_${{ steps.determine-tag.outputs.release_tag }}.jar"
-          if gh release view "$TAG_NAME" &>/dev/null; then
-            echo "Release $TAG_NAME exists. Updating..."
-            # Удаление существующих файлов из релиза
-            ASSET_ID=$(gh api -H "Accept: application/vnd.github.v3+json" "/repos/${{ github.repository }}/releases/tags/$TAG_NAME" | jq -r ".assets[] | select(.name == \"$(basename $JAR_FILE)\") | .id")
-            if [ -n "$ASSET_ID" ]; then
-              gh api -X DELETE "/repos/${{ github.repository }}/releases/assets/$ASSET_ID"
-            fi
-            # Обновление релиза с новыми файлами
-            gh release upload "$TAG_NAME" "$JAR_FILE"
-            gh release edit "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}" --title "$TAG_NAME"
-          else
-            echo "Creating new release $TAG_NAME..."
-            gh release create "$TAG_NAME" "$JAR_FILE" --title "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}"
-          fi
+          gh release create "$TAG_NAME" "$JAR_FILE" --title "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}"
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
