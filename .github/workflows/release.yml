@@ -22,16 +22,16 @@ jobs:
         id: get-version
         run: |
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          echo "PLUGIN_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "::set-output name=plugin_version::$VERSION"
 
       - name: Get the latest commit message
         id: get-commit-message
         run: |
           COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
+          echo "::set-output name=commit_message::$COMMIT_MESSAGE"
 
       - name: Check if build is needed
-        if: contains(steps.get-commit-message.outputs.COMMIT_MESSAGE, 'no build version')
+        if: contains(steps.get-commit-message.outputs.commit_message, 'no build version')
         run: |
           echo "Build and release skipped due to 'no build version' in commit message."
           exit 0
@@ -39,7 +39,7 @@ jobs:
       - name: Check if tag exists and determine new tag
         id: check-tag
         run: |
-          TAG_NAME=v${{ env.PLUGIN_VERSION }}
+          TAG_NAME=v${{ steps.get-version.outputs.plugin_version }}
           echo "Checking if tag $TAG_NAME exists..."
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
             COUNTER=1
@@ -51,8 +51,7 @@ jobs:
           else
             echo "Tag $TAG_NAME does not exist. Proceeding with this tag."
           fi
-          echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
-          echo "Final tag name: $TAG_NAME"
+          echo "::set-output name=release_tag::$TAG_NAME"
 
       - name: Build with Maven
         run: |
@@ -61,17 +60,14 @@ jobs:
       - name: Rename built JAR
         run: |
           ORIGINAL_JAR=$(ls target/*.jar | head -n 1)
-          if [ -f "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar" ]; then
-            rm "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
-          fi
-          mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
+          mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ steps.check-tag.outputs.release_tag }}.jar"
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          release_name: ${{ env.RELEASE_TAG }}
-          body: ${{ env.COMMIT_MESSAGE }}
+          tag_name: ${{ steps.check-tag.outputs.release_tag }}
+          release_name: ${{ steps.check-tag.outputs.release_tag }}
+          body: ${{ steps.get-commit-message.outputs.commit_message }}
           draft: false
           prerelease: false
         env:
@@ -81,6 +77,6 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
-          asset_name: "EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
+          asset_path: "target/EasyCommandBlocker_${{ steps.check-tag.outputs.release_tag }}.jar"
+          asset_name: "EasyCommandBlocker_${{ steps.check-tag.outputs.release_tag }}.jar"
           asset_content_type: application/java-archive
