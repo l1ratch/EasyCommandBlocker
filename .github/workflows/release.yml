@@ -46,13 +46,11 @@ jobs:
         run: |
           BASE_TAG="v${{ steps.get-version.outputs.plugin_version }}"
           TAG_NAME="$BASE_TAG"
-          if gh release view "$TAG_NAME" &>/dev/null; then
-            COUNTER=1
-            while gh release view "$TAG_NAME($COUNTER)" &>/dev/null; do
-              COUNTER=$((COUNTER+1))
-            done
+          COUNTER=1
+          while gh release view "$TAG_NAME" &>/dev/null; do
             TAG_NAME="$BASE_TAG($COUNTER)"
-          fi
+            COUNTER=$((COUNTER+1))
+          done
           echo "Final tag determined: $TAG_NAME"
           echo "::set-output name=release_tag::$TAG_NAME"
 
