@@ -46,12 +46,13 @@ jobs:
           BASE_TAG="v${{ env.PLUGIN_VERSION }}"
           TAG_NAME="$BASE_TAG"
           COUNTER=1
-          while git rev-parse "$TAG_NAME" >/dev/null 2>&1; do
+          while gh release view "$TAG_NAME" >/dev/null 2>&1; do
+            echo "Tag $TAG_NAME already exists, incrementing..."
             TAG_NAME="$BASE_TAG($COUNTER)"
             COUNTER=$((COUNTER+1))
           done
-          echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
           echo "Final tag determined: $TAG_NAME"
+          echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
 
       - name: Build with Maven
         run: |
