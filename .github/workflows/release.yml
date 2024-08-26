@@ -47,7 +47,7 @@ jobs:
           BASE_TAG="v${{ steps.get-version.outputs.plugin_version }}"
           TAG_NAME="$BASE_TAG"
           COUNTER=1
-          while gh release view "$TAG_NAME" &>/dev/null; do
+          while gh api --silent "/repos/${{ github.repository }}/releases/tags/$TAG_NAME" >/dev/null 2>&1; do
             TAG_NAME="$BASE_TAG($COUNTER)"
             COUNTER=$((COUNTER+1))
           done
