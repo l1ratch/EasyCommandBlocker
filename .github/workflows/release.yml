@@ -9,65 +9,81 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Загружаем все коммиты и теги
+
+      - name: Fetch all tags
+        run: git fetch --tags
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          java-version: '17'
           distribution: 'temurin'
+          java-version: '17'
 
-      - name: Install GitHub CLI
-        run: |
-          sudo apt-get install -y gh
-
-      - name: Get the version from pom.xml
-        id: get-version
+      - name: Extract version from pom.xml
+        id: extract_version
         run: |
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          echo "PLUGIN_VERSION=$VERSION" >> $GITHUB_ENV
+          if [ -z "$VERSION" ]; then
+            echo "Version not found in pom.xml"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Get the latest commit message
-        id: get-commit-message
+      - name: Extract full commit message as description
+        id: extract_description
         run: |
-          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
+          DESCRIPTION=$(git log -1 --pretty=%B)
+          echo "$DESCRIPTION" > description.txt
+          echo "DESCRIPTION_FILE=description.txt" >> $GITHUB_ENV
 
       - name: Check if build is needed
-        if: contains('${{ env.COMMIT_MESSAGE }}', 'no build version')
+        if: contains('${{ env.DESCRIPTION }}', 'no build version')
         run: |
           echo "Build and release skipped due to 'no build version' in commit message."
           exit 0
 
-      - name: Determine release tag with incremented indicator
-        id: determine-tag
+      - name: Determine the next available version
+        id: determine_version
         run: |
-          BASE_TAG="v${{ env.PLUGIN_VERSION }}"
-          TAG_NAME="$BASE_TAG"
-          COUNTER=1
-          while gh release view "$TAG_NAME" >/dev/null 2>&1; do
-            echo "Tag $TAG_NAME already exists, incrementing..."
-            TAG_NAME="$BASE_TAG($COUNTER)"
-            COUNTER=$((COUNTER+1))
+          BASE_VERSION=${{ env.VERSION }}
+          PATCH=0
+          NEXT_VERSION="$BASE_VERSION.$PATCH"
+
+          while git rev-parse "v$NEXT_VERSION" >/dev/null 2>&1; do
+            PATCH=$((PATCH + 1))
+            NEXT_VERSION="$BASE_VERSION.$PATCH"
           done
-          echo "Final tag determined: $TAG_NAME"
-          echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
+
+          FINAL_VERSION="v$NEXT_VERSION"
+          echo "FINAL_VERSION=$FINAL_VERSION" >> $GITHUB_ENV
+          echo "Determined next available version: $FINAL_VERSION"
 
       - name: Build with Maven
-        run: |
-          mvn clean package
+        run: mvn clean package -Dproject.version=${{ env.FINAL_VERSION }}
 
-      - name: Rename built JAR
-        run: |
-          ORIGINAL_JAR=$(ls target/*.jar | head -n 1)
-          mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ env.RELEASE_TAG }}.jar"
+      - name: Check if JAR file exists
+        run: ls -lh target/
 
-      - name: Create GitHub Release using CLI
+      - name: Rename JAR file to match version
         run: |
-          TAG_NAME="${{ env.RELEASE_TAG }}"
-          JAR_FILE="target/EasyCommandBlocker_${TAG_NAME}.jar"
-          echo "Creating release with tag: $TAG_NAME"
-          gh release create "$TAG_NAME" "$JAR_FILE" --title "$TAG_NAME" --notes "${{ env.COMMIT_MESSAGE }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+          JAR_FILE=$(ls target/EasyCommandBlocker-*.jar | head -n 1)
+          if [ -z "$JAR_FILE" ]; then
+            echo "JAR file not found!"
+            exit 1
+          fi
+          mv "$JAR_FILE" "target/EasyCommandBlocker-${{ env.FINAL_VERSION }}.jar"
+
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh -y
+
+      - name: Authenticate with GitHub CLI
+        run: echo "${{ secrets.TOKEN }}" | gh auth login --with-token
+
+      - name: Create GitHub Release using gh cli
+        run: |
+          DESCRIPTION=$(cat ${{ env.DESCRIPTION_FILE }})
+          gh release create ${{ env.FINAL_VERSION }} target/EasyCommandBlocker-${{ env.FINAL_VERSION }}.jar --title "${{ env.FINAL_VERSION }}" --notes "$DESCRIPTION"
