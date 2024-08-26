@@ -44,13 +44,23 @@ jobs:
           ORIGINAL_JAR=$(ls target/*.jar | head -n 1)
           mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ steps.get-version.outputs.plugin_version }}.jar"
 
-      - name: Update GitHub Release using CLI
+      - name: Update or Create GitHub Release using CLI
         run: |
           TAG_NAME="v${{ steps.get-version.outputs.plugin_version }}"
+          JAR_FILE="target/EasyCommandBlocker_${{ steps.get-version.outputs.plugin_version }}.jar"
           if gh release view "$TAG_NAME" &>/dev/null; then
-            gh release edit "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}" --title "$TAG_NAME" "target/EasyCommandBlocker_${{ steps.get-version.outputs.plugin_version }}.jar"
+            echo "Release $TAG_NAME exists. Updating..."
+            # Удаление существующих файлов из релиза
+            ASSET_ID=$(gh api -H "Accept: application/vnd.github.v3+json" "/repos/${{ github.repository }}/releases/tags/$TAG_NAME" | jq -r ".assets[] | select(.name == \"$(basename $JAR_FILE)\") | .id")
+            if [ -n "$ASSET_ID" ]; then
+              gh api -X DELETE "/repos/${{ github.repository }}/releases/assets/$ASSET_ID"
+            fi
+            # Обновление релиза с новыми файлами
+            gh release upload "$TAG_NAME" "$JAR_FILE"
+            gh release edit "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}" --title "$TAG_NAME"
           else
-            gh release create "$TAG_NAME" "target/EasyCommandBlocker_${{ steps.get-version.outputs.plugin_version }}.jar" --title "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}"
+            echo "Creating new release $TAG_NAME..."
+            gh release create "$TAG_NAME" "$JAR_FILE" --title "$TAG_NAME" --notes "${{ steps.get-commit-message.outputs.commit_message }}"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
