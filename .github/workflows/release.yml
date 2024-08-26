@@ -41,18 +41,19 @@ jobs:
           echo "Build and release skipped due to 'no build version' in commit message."
           exit 0
 
-      - name: Determine release tag with fix version
+      - name: Determine release tag with incremented indicator
         id: determine-tag
         run: |
-          TAG_NAME="v${{ steps.get-version.outputs.plugin_version }}"
+          BASE_TAG="v${{ steps.get-version.outputs.plugin_version }}"
+          TAG_NAME="$BASE_TAG"
           if gh release view "$TAG_NAME" &>/dev/null; then
             COUNTER=1
             while gh release view "$TAG_NAME($COUNTER)" &>/dev/null; do
               COUNTER=$((COUNTER+1))
             done
-            TAG_NAME="$TAG_NAME($COUNTER)"
-            echo "Tag already exists. New tag determined: $TAG_NAME"
+            TAG_NAME="$BASE_TAG($COUNTER)"
           fi
+          echo "Final tag determined: $TAG_NAME"
           echo "::set-output name=release_tag::$TAG_NAME"
 
       - name: Build with Maven
@@ -64,16 +65,7 @@ jobs:
           ORIGINAL_JAR=$(ls target/*.jar | head -n 1)
           mv "$ORIGINAL_JAR" "target/EasyCommandBlocker_${{ steps.determine-tag.outputs.release_tag }}.jar"
 
-      - name: Save old files to a new OLD release
-        if: steps.determine-tag.outputs.release_tag != steps.get-version.outputs.plugin_version
-        run: |
-          OLD_TAG="${{ steps.get-version.outputs.plugin_version }}-OLD"
-          gh release create "$OLD_TAG" $(gh release view "${{ steps.get-version.outputs.plugin_version }}" --json assets --jq '.assets[].url' | xargs -n1 -I{} curl -L -o {} {})
-          gh release delete "${{ steps.get-version.outputs.plugin_version }}" -y
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create or Update GitHub Release using CLI
+      - name: Create GitHub Release using CLI
         run: |
           TAG_NAME="${{ steps.determine-tag.outputs.release_tag }}"
           JAR_FILE="target/EasyCommandBlocker_${{ steps.determine-tag.outputs.release_tag }}.jar"
