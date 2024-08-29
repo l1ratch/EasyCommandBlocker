@@ -46,20 +46,19 @@ jobs:
           echo "Build and release skipped due to 'no build version' in commit message."
           exit 0
 
-      - name: Determine the next available version with parentheses
+      - name: Determine the next available semantic version
         id: determine_version
         run: |
-          BASE_TAG="v${{ env.VERSION }}"
-          TAG_NAME="$BASE_TAG"
-          COUNTER=1
+          BASE_VERSION="v${{ env.VERSION }}"
+          PATCH=0
+          NEXT_VERSION="$BASE_VERSION.$PATCH"
 
-          while gh release view "$TAG_NAME" >/dev/null 2>&1; do
-            echo "Tag $TAG_NAME already exists, incrementing..."
-            TAG_NAME="$BASE_TAG($COUNTER)"
-            COUNTER=$((COUNTER + 1))
+          while git rev-parse "$NEXT_VERSION" >/dev/null 2>&1; do
+            PATCH=$((PATCH + 1))
+            NEXT_VERSION="$BASE_VERSION.$PATCH"
           done
 
-          FINAL_VERSION="$TAG_NAME"
+          FINAL_VERSION="$NEXT_VERSION"
           echo "FINAL_VERSION=$FINAL_VERSION" >> $GITHUB_ENV
           echo "Determined next available version: $FINAL_VERSION"
 
